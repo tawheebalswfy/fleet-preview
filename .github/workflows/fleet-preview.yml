@@ -39,16 +39,16 @@ jobs:
           python -m pip install --upgrade pip setuptools wheel
           python -m pip install frappe-bench
 
-      - name: 5) Configure MariaDB for Frappe
+      - name: 5) Configure MariaDB
         run: |
           sudo bash -c 'cat > /etc/mysql/mariadb.conf.d/99-frappe.cnf <<EOF
-          [mysqld]
-          character-set-client-handshake = FALSE
-          character-set-server = utf8mb4
-          collation-server = utf8mb4_unicode_ci
-          [mysql]
-          default-character-set = utf8mb4
-          EOF'
+[mysqld]
+character-set-client-handshake = FALSE
+character-set-server = utf8mb4
+collation-server = utf8mb4_unicode_ci
+[mysql]
+default-character-set = utf8mb4
+EOF'
 
           sudo systemctl restart mariadb
           sudo systemctl restart redis-server
@@ -75,15 +75,21 @@ jobs:
           bench --site ${SITE_NAME} install-app erpnext
           bench --site ${SITE_NAME} install-app vsd_fleet_ms
 
-      - name: 8) Start services in background
+      - name: 8) Start services
         run: |
           cd frappe-bench
 
           nohup bench start > /tmp/fleet-bench.log 2>&1 &
-          sleep 60
+          sleep 90
 
           echo "=== bench log tail ==="
-          tail -n 80 /tmp/fleet-bench.log || true
+          tail -n 150 /tmp/fleet-bench.log || true
+
+          echo "=== port check ==="
+          ss -tlnp | grep -E '8000|9000|11000|13000' || true
+
+          echo "=== localhost check ==="
+          curl -I http://127.0.0.1:8000 || true
 
       - name: 9) Install cloudflared
         run: |
@@ -91,10 +97,19 @@ jobs:
           chmod +x cloudflared-linux-amd64
           sudo mv cloudflared-linux-amd64 /usr/local/bin/cloudflared
 
-      - name: 10) Open temporary public URL
+      - name: 10) Open temporary URL
         run: |
+          for i in {1..12}; do
+            if curl -s http://127.0.0.1:8000 >/dev/null; then
+              echo "Local web is ready"
+              break
+            fi
+            echo "Waiting for local web..."
+            sleep 10
+          done
+
           nohup cloudflared tunnel --url http://127.0.0.1:8000 > /tmp/cloudflared.log 2>&1 &
-          sleep 15
+          sleep 20
 
           echo "=== cloudflared log ==="
           cat /tmp/cloudflared.log || true
@@ -116,11 +131,10 @@ jobs:
           echo "URL      : $PREVIEW_URL"
           echo "User     : Administrator"
           echo "Password : ${ADMIN_PASSWORD}"
-          echo "Site     : ${SITE_NAME}"
           echo "======================================"
           echo ""
 
-      - name: 12) Keep alive for preview
+      - name: 12) Keep Alive
         run: |
           END=$((SECONDS+18000))
           while [ $SECONDS -lt $END ]; do
