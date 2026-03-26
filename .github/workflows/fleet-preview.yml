@@ -41,14 +41,12 @@ jobs:
 
       - name: 5) Configure MariaDB
         run: |
-          sudo bash -c 'cat > /etc/mysql/mariadb.conf.d/99-frappe.cnf <<EOF
-[mysqld]
-character-set-client-handshake = FALSE
-character-set-server = utf8mb4
-collation-server = utf8mb4_unicode_ci
-[mysql]
-default-character-set = utf8mb4
-EOF'
+          echo "[mysqld]" | sudo tee /etc/mysql/mariadb.conf.d/99-frappe.cnf
+          echo "character-set-client-handshake = FALSE" | sudo tee -a /etc/mysql/mariadb.conf.d/99-frappe.cnf
+          echo "character-set-server = utf8mb4" | sudo tee -a /etc/mysql/mariadb.conf.d/99-frappe.cnf
+          echo "collation-server = utf8mb4_unicode_ci" | sudo tee -a /etc/mysql/mariadb.conf.d/99-frappe.cnf
+          echo "[mysql]" | sudo tee -a /etc/mysql/mariadb.conf.d/99-frappe.cnf
+          echo "default-character-set = utf8mb4" | sudo tee -a /etc/mysql/mariadb.conf.d/99-frappe.cnf
 
           sudo systemctl restart mariadb
           sudo systemctl restart redis-server
